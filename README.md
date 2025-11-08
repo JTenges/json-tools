@@ -1,71 +1,76 @@
-# json-tools README
+# json-tools
 
-This is the README for your extension "json-tools". After writing up a brief description, we recommend including the following sections.
+json-tools is a small Visual Studio Code extension that helps you discover and navigate JSON paths inside a JSON (or JSONC) document and copy the path for the value under the cursor.
+
+It provides two lightweight, editor-focused commands:
+
+- "Go to JSON Path" — open a Quick Pick of discovered JSON paths (with short previews) and jump to the selected value in the document.
+- "Copy JSON Path" — compute the JSON path for the value at the current cursor position and copy a dot/bracket-style path to the clipboard.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Discover all object and array paths in the current JSON document and preview values in-place.
+- Quick filtering and fuzzy search in the Quick Pick; you can also paste a path directly into the Quick Pick to jump to it.
+- Copy a safe dot/bracket path representation for the value at the cursor (handles identifiers and quoted keys).
+- Works with JSON and JSON with comments (uses `jsonc-parser`) and resolves paths with the same parsed tree.
 
-For example if there is an image subfolder under your extension project workspace:
+## Commands
 
-\!\[feature X\]\(images/feature-x.png\)
+The extension contributes the following commands (also available on the editor context menu when the language is `json`):
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- `json-tools.goToJsonPath` — "Go to JSON Path"
+- `json-tools.copyJsonPath` — "Copy JSON Path"
 
-## Requirements
+You can run them from the Command Palette (Ctrl+Shift+P / Cmd+Shift+P) or find them in the editor context menu when editing JSON files.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## How to use
 
-## Extension Settings
+1. Open a JSON or JSONC file in the editor.
+2. To navigate visually: right-click anywhere in the editor or open the Command Palette and choose "Go to JSON Path". A Quick Pick will appear showing discovered paths and a short preview of the value. Type to filter or paste a path and press Enter to jump to it.
+3. To copy a path: place the cursor on or inside a value (key, object, array element) and run the "Copy JSON Path" command. The dot/bracket-style path will be copied to your clipboard and a confirmation message shown.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+Example copied paths:
 
-For example:
+- top-level identifier: myKey
+- nested property: parent.child.name
+- array element: items[0].name
+- quoted key: ['weird-key'].value
 
-This extension contributes the following settings:
+Notes:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- The "Go to JSON Path" Quick Pick shows a limited initial set of items for performance. Filtering increases the search set.
+- The extension uses `jsonc-parser` to parse the document; if the file is not valid JSON/JSONC the extension may not find paths.
 
-## Known Issues
+## Limitations & edge cases
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+- Malformed JSON: parsing must succeed to collect paths; the commands will report failures in that case.
+- Very large JSON documents may take longer to collect all paths — the Quick Pick limits and filtering are used to keep the UI responsive.
+- The path format produced and used by the extension is a dot/bracket path (not necessarily a full JSONPath expression). The Quick Pick accepts typed input and tries to match entries; you can paste JSONPath-like strings but behavior depends on how the path parses to segments.
 
-## Release Notes
+## Implementation notes
 
-Users appreciate release notes as you update your extension.
+- The extension scans the parsed JSON tree and generates paths for object properties and array indices.
+- Navigation uses the node offset/length to select and reveal the target range.
+- Copying computes a safe path string (identifier vs quoted key) and writes it to the clipboard.
 
-### 1.0.0
+## Development
 
-Initial release of ...
+This project uses TypeScript and depends on `jsonc-parser` and `jsonpath-plus` at runtime. Build and test scripts are available in `package.json`.
 
-### 1.0.1
+If you want to run and test locally:
 
-Fixed issue #.
+1. Install dependencies: use your package manager (pnpm/npm/yarn) to install.
+2. Compile TypeScript: `npm run compile` (or run `pnpm` equivalent).
+3. Launch the extension in the Extension Development Host from VS Code.
 
-### 1.1.0
+## Contributing
 
-Added features X, Y, and Z.
+Contributions are welcome. Open issues for bugs or feature requests and consider sending a pull request with tests and a clear description of the change.
 
----
+## License
 
-## Following extension guidelines
+Add your license here (for example, MIT) or a pointer to your repository license file.
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+## Release notes
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+See the repository changelog or releases for details.
