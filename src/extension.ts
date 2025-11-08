@@ -17,51 +17,92 @@ export function activate(context: vscode.ExtensionContext) {
   const disposable = vscode.commands.registerCommand(
     "json-tools.goToJsonPath",
     async () => {
-      const jsonPath = await vscode.window.showInputBox({
-        prompt: "Enter JSON path (e.g. user.name or items[0].id)",
-        placeHolder: "user.name",
-        value: "",
-      });
-
-      if (!jsonPath) {
-        // log error
-        console.error("No JSON path");
-        return;
-      }
-
+      // Show a QuickPick that provides suggestions as the user types.
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showInformationMessage("No active editor or file open");
         return;
       }
 
-      // get the current file contents as a string
       const doc = editor.document;
       const content = doc.getText();
-
       const tree = parseTree(content);
       if (!tree) {
-        // log error
         console.error("Failed to parse JSON");
         return;
       }
-      const jsonPathArray = JSONPath.toPathArray(jsonPath).map((segment) => {
-				const intVal = parseInt(segment);
-				return !Number.isNaN(intVal) ? intVal : segment;
-      });
-      console.log(jsonPathArray);
-      const node = findNodeAtLocation(tree, jsonPathArray);
-      if (!node) {
-        // log error
-        console.error("Failed to find JSON node");
-        return;
-      }
-      const range = new vscode.Range(
-        doc.positionAt(node.offset),
-        doc.positionAt(node.offset + node.length)
+
+      // Collect all possible JSON-path strings from the parsed tree
+      const allPaths: string[] = [];
+      collectPaths(tree, [], allPaths);
+
+      const qp = vscode.window.createQuickPick();
+      qp.placeholder = "Enter JSON path (type to filter suggestions or paste one)";
+      qp.matchOnDescription = true;
+      qp.matchOnDetail = true;
+
+      // initially show top-level paths
+      qp.items = allPaths.slice(0, 100).map((p) => ({ label: p }));
+
+      const updateItems = (value: string) => {
+        if (!value) {
+          qp.items = allPaths.slice(0, 100).map((p) => ({ label: p }));
+          return;
+        }
+        const q = value.toLowerCase();
+        const filtered = allPaths
+          .filter((p) => p.toLowerCase().startsWith(q) || p.toLowerCase().includes(q))
+          .slice(0, 200);
+        qp.items = filtered.map((p) => ({ label: p }));
+      };
+
+      const disposables: vscode.Disposable[] = [];
+
+      disposables.push(
+        qp.onDidChangeValue((v) => {
+          updateItems(v);
+        })
       );
-      editor.selection = new vscode.Selection(range.start, range.end);
-      editor.revealRange(range);
+
+      disposables.push(
+        qp.onDidAccept(async () => {
+          const selected = qp.selectedItems && qp.selectedItems[0] ? qp.selectedItems[0].label : qp.value;
+          qp.hide();
+          try {
+            if (!selected) {
+              return;
+            }
+            // convert the path string into a path array usable by findNodeAtLocation
+            const jsonPathArray = JSONPath.toPathArray(selected).map((segment) => {
+              const intVal = parseInt(segment as any);
+              return !Number.isNaN(intVal) ? intVal : segment;
+            });
+
+            const node = findNodeAtLocation(tree, jsonPathArray);
+            if (!node) {
+              vscode.window.showErrorMessage(`Path not found in document: ${selected}`);
+              return;
+            }
+            const range = new vscode.Range(
+              doc.positionAt(node.offset),
+              doc.positionAt(node.offset + node.length)
+            );
+            editor.selection = new vscode.Selection(range.start, range.end);
+            editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+          } catch (err) {
+            console.error(err);
+            vscode.window.showErrorMessage("Failed to navigate to JSON path");
+          }
+        })
+      );
+
+      disposables.push(
+        qp.onDidHide(() => {
+          disposables.forEach((d) => d.dispose());
+        })
+      );
+
+      qp.show();
     }
   );
 
@@ -140,4 +181,56 @@ function pathToString(path: Array<string | number>): string {
   });
 
   return out;
+}
+
+// Collect all JSON paths from a jsonc-parser node tree.
+// node: the parseTree node; currentPath: accumulated path segments; out: array to append path strings
+function collectPaths(node: any, currentPath: Array<string | number>, out: string[]) {
+  if (!node) {
+    return;
+  }
+
+  // object nodes have children which are property nodes
+  if (node.type === "object" && Array.isArray(node.children)) {
+    for (const prop of node.children) {
+      // property node: children[0] is key node, children[1] is value node
+      const keyNode = prop.children && prop.children[0];
+      const valueNode = prop.children && prop.children[1];
+      const key = keyNode && keyNode.value !== undefined ? keyNode.value : null;
+      if (key === null) {
+        continue;
+      }
+      const newPath = [...currentPath, key];
+      out.push(pathToString(newPath));
+      collectPaths(valueNode, newPath, out);
+    }
+    return;
+  }
+
+  // array nodes have children which are value nodes
+  if (node.type === "array" && Array.isArray(node.children)) {
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i];
+      const newPath = [...currentPath, i];
+      out.push(pathToString(newPath));
+      collectPaths(child, newPath, out);
+    }
+    return;
+  }
+
+  // property nodes (safety) — handle similarly to object child
+  if (node.type === "property" && Array.isArray(node.children) && node.children.length >= 2) {
+    const keyNode = node.children[0];
+    const valueNode = node.children[1];
+    const key = keyNode && keyNode.value !== undefined ? keyNode.value : null;
+    if (key === null) {
+      return;
+    }
+    const newPath = [...currentPath, key];
+    out.push(pathToString(newPath));
+    collectPaths(valueNode, newPath, out);
+    return;
+  }
+
+  // literal nodes: nothing further to traverse
 }
