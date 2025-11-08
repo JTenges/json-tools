@@ -26,4 +26,4 @@ Upload to extension registries:
 
 https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
 
-`npx ovsx publish <vsix file>`
+`npx ovsx publish`

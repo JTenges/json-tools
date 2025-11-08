@@ -2,13 +2,14 @@
   "name": "json-tools",
   "displayName": "json-tools",
   "description": "",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "joten",
   "repository": {
     "url": "https://github.com/JTenges/json-tools"
   },
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.99.3",
+    "cursor": "^2.0.69"
   },
   "categories": [
     "Other"
@@ -66,7 +67,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.105.0",
+    "@types/vscode": "^1.99.3",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
     "@vscode/test-cli": "^0.0.11",
