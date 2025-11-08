@@ -3,6 +3,9 @@
   "displayName": "json-tools",
   "description": "",
   "version": "0.0.1",
+  "repository": {
+    "url": "https://github.com/JTenges/json-tools"
+  },
   "engines": {
     "vscode": "^1.105.0"
   },
