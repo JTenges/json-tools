@@ -113,11 +113,12 @@ export function activate(context: vscode.ExtensionContext) {
               return;
             }
             // convert the path string into a path array usable by findNodeAtLocation
-            const jsonPathArray = JSONPath.toPathArray(selected)
+						// We need to handle property names that include special characters like [ and ]
+            const jsonPathArray = JSONPath.toPathArray(selected.replace("['[", "[(@['[").replace("]']", "]'])]"))
               .filter((segment) => segment !== "")
               .map((segment) => {
                 const intVal = parseInt(segment);
-                return !Number.isNaN(intVal) ? intVal : segment;
+                return !Number.isNaN(intVal) ? intVal : segment.replace("(@['[", "[").replace("]'])", "]");
               });
 
             const node = findNodeAtLocation(tree, jsonPathArray);

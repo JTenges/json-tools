@@ -2,7 +2,7 @@
   "name": "json-tools",
   "displayName": "json-tools",
   "description": "",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "joten",
   "repository": {
     "url": "https://github.com/JTenges/json-tools"
@@ -15,8 +15,6 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:json-tools.goToJsonPath",
-    "onCommand:json-tools.copyJsonPath",
     "onLanguage:json"
   ],
   "main": "./out/extension.js",
@@ -33,10 +31,6 @@
     ],
     "menus": {
       "editor/context": [
-        {
-          "command": "json-tools.goToJsonPath",
-          "when": "resourceLangId == json"
-        },
         {
           "command": "json-tools.copyJsonPath",
           "when": "resourceLangId == json",
