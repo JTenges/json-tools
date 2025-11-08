@@ -32,28 +32,65 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Collect all possible JSON-path strings from the parsed tree
-      const allPaths: string[] = [];
+      // Collect all possible JSON-paths and node locations from the parsed tree
+      const allPaths: Array<{
+        path: string;
+        pathArray: (string | number)[];
+        offset: number;
+        length: number;
+      }> = [];
       collectPaths(tree, [], allPaths);
 
+      // Precompute short previews for each path (slice of document text at node)
+      const makePreview = (offset: number, length: number) => {
+        try {
+          const raw = content.substring(offset, offset + length);
+          const single = raw.replace(/\s+/g, " ").trim();
+          if (single.length > 120) {
+            return single.slice(0, 120) + "…";
+          }
+          return single;
+        } catch (e) {
+          return "";
+        }
+      };
+
+      const allItems = allPaths.map((it) => ({
+        ...it,
+        preview: makePreview(it.offset, it.length),
+      }));
+
       const qp = vscode.window.createQuickPick();
-      qp.placeholder = "Enter JSON path (type to filter suggestions or paste one)";
+      qp.placeholder =
+        "Enter JSON path (type to filter suggestions or paste one)";
       qp.matchOnDescription = true;
       qp.matchOnDetail = true;
 
-      // initially show top-level paths
-      qp.items = allPaths.slice(0, 100).map((p) => ({ label: p }));
+      // initially show top-level paths with value previews
+      qp.items = allItems
+        .slice(0, 100)
+        .map((p) => ({ label: p.path, description: p.preview }));
 
       const updateItems = (value: string) => {
         if (!value) {
-          qp.items = allPaths.slice(0, 100).map((p) => ({ label: p }));
+          qp.items = allItems
+            .slice(0, 100)
+            .map((p) => ({ label: p.path, description: p.preview }));
           return;
         }
         const q = value.toLowerCase();
-        const filtered = allPaths
-          .filter((p) => p.toLowerCase().startsWith(q) || p.toLowerCase().includes(q))
+        const filtered = allItems
+          .filter(
+            (p) =>
+              p.path.toLowerCase().startsWith(q) ||
+              p.path.toLowerCase().includes(q) ||
+              p.preview.toLowerCase().includes(q)
+          )
           .slice(0, 200);
-        qp.items = filtered.map((p) => ({ label: p }));
+        qp.items = filtered.map((p) => ({
+          label: p.path,
+          description: p.preview,
+        }));
       };
 
       const disposables: vscode.Disposable[] = [];
@@ -66,21 +103,28 @@ export function activate(context: vscode.ExtensionContext) {
 
       disposables.push(
         qp.onDidAccept(async () => {
-          const selected = qp.selectedItems && qp.selectedItems[0] ? qp.selectedItems[0].label : qp.value;
+          const selected =
+            qp.selectedItems && qp.selectedItems[0]
+              ? qp.selectedItems[0].label
+              : qp.value;
           qp.hide();
           try {
             if (!selected) {
               return;
             }
             // convert the path string into a path array usable by findNodeAtLocation
-            const jsonPathArray = JSONPath.toPathArray(selected).map((segment) => {
-              const intVal = parseInt(segment as any);
-              return !Number.isNaN(intVal) ? intVal : segment;
-            });
+            const jsonPathArray = JSONPath.toPathArray(selected)
+              .filter((segment) => segment !== "")
+              .map((segment) => {
+                const intVal = parseInt(segment);
+                return !Number.isNaN(intVal) ? intVal : segment;
+              });
 
             const node = findNodeAtLocation(tree, jsonPathArray);
             if (!node) {
-              vscode.window.showErrorMessage(`Path not found in document: ${selected}`);
+              vscode.window.showErrorMessage(
+                `Path not found in document: ${selected}`
+              );
               return;
             }
             const range = new vscode.Range(
@@ -184,8 +228,17 @@ function pathToString(path: Array<string | number>): string {
 }
 
 // Collect all JSON paths from a jsonc-parser node tree.
-// node: the parseTree node; currentPath: accumulated path segments; out: array to append path strings
-function collectPaths(node: any, currentPath: Array<string | number>, out: string[]) {
+// node: the parseTree node; currentPath: accumulated path segments; out: array to append {path, offset, length}
+function collectPaths(
+  node: any,
+  currentPath: Array<string | number>,
+  out: Array<{
+    path: string;
+    pathArray: (string | number)[];
+    offset: number;
+    length: number;
+  }>
+) {
   if (!node) {
     return;
   }
@@ -201,7 +254,13 @@ function collectPaths(node: any, currentPath: Array<string | number>, out: strin
         continue;
       }
       const newPath = [...currentPath, key];
-      out.push(pathToString(newPath));
+      const target = valueNode || prop;
+      out.push({
+        path: pathToString(newPath),
+        pathArray: newPath,
+        offset: target.offset || 0,
+        length: target.length || 0,
+      });
       collectPaths(valueNode, newPath, out);
     }
     return;
@@ -212,14 +271,23 @@ function collectPaths(node: any, currentPath: Array<string | number>, out: strin
     for (let i = 0; i < node.children.length; i++) {
       const child = node.children[i];
       const newPath = [...currentPath, i];
-      out.push(pathToString(newPath));
+      out.push({
+        path: pathToString(newPath),
+        pathArray: newPath,
+        offset: child.offset || 0,
+        length: child.length || 0,
+      });
       collectPaths(child, newPath, out);
     }
     return;
   }
 
   // property nodes (safety) — handle similarly to object child
-  if (node.type === "property" && Array.isArray(node.children) && node.children.length >= 2) {
+  if (
+    node.type === "property" &&
+    Array.isArray(node.children) &&
+    node.children.length >= 2
+  ) {
     const keyNode = node.children[0];
     const valueNode = node.children[1];
     const key = keyNode && keyNode.value !== undefined ? keyNode.value : null;
@@ -227,7 +295,13 @@ function collectPaths(node: any, currentPath: Array<string | number>, out: strin
       return;
     }
     const newPath = [...currentPath, key];
-    out.push(pathToString(newPath));
+    const target = valueNode || node;
+    out.push({
+      path: pathToString(newPath),
+      pathArray: newPath,
+      offset: target.offset || 0,
+      length: target.length || 0,
+    });
     collectPaths(valueNode, newPath, out);
     return;
   }
