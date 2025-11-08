@@ -63,6 +63,13 @@ If you want to run and test locally:
 2. Compile TypeScript: `npm run compile` (or run `pnpm` equivalent).
 3. Launch the extension in the Extension Development Host from VS Code.
 
+## Publishing
+
+Create vsix package with `vsce package`
+
+Upload to extension registries:
+- Open VSX: https://open-vsx.org/user-settings/extensions
+
 ## Contributing
 
 Contributions are welcome. Open issues for bugs or feature requests and consider sending a pull request with tests and a clear description of the change.
