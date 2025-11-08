@@ -171,12 +171,12 @@ export function activate(context: vscode.ExtensionContext) {
 
         const pathStr = pathToString(path);
         if (!pathStr) {
-          vscode.window.showInformationMessage("No JSON path at cursor");
+          vscode.window.setStatusBarMessage("No JSON path at cursor", 10000);
           return;
         }
 
         await vscode.env.clipboard.writeText(pathStr);
-        vscode.window.showInformationMessage(`Copied JSON path: ${pathStr}`);
+        vscode.window.setStatusBarMessage(`Copied JSON path: ${pathStr}`, 10000);
       } catch (err) {
         console.error(err);
         vscode.window.showErrorMessage("Failed to compute JSON path");
