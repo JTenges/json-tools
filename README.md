@@ -68,7 +68,12 @@ If you want to run and test locally:
 Create vsix package with `vsce package`
 
 Upload to extension registries:
-- Open VSX: https://open-vsx.org/user-settings/extensions
+
+### Open VSX
+
+https://github.com/eclipse/openvsx/wiki/Publishing-Extensions
+
+`npx ovsx publish <vsix file>`
 
 ## Contributing
 
